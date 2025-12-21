@@ -1,0 +1,26 @@
+[package]
+name = "rsync_tree"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+walkdir = "2.3"
+globset = "0.4"
+clap = { version = "4.0", features = ["derive"] }
+dirs = "5.0"
+anstyle = "1.0.11"
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[lib]
+name = "rsync_tree"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rsync_tree"
+path = "src/main.rs"
