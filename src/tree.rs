@@ -1,9 +1,12 @@
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 use crate::formatting::{format_connector, format_debug_info, format_size_info, style_node_name};
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Serialize, Deserialize)]
 pub enum NodeStatus {
     FileExcluded,
     FileIncluded,
@@ -13,7 +16,7 @@ pub enum NodeStatus {
     DirectoryIncluded,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Tree {
     pub name: String,
     pub path: PathBuf,
@@ -89,6 +92,19 @@ impl Tree {
                 | NodeStatus::DirectoryMixed
                 | NodeStatus::DirectoryStandalone
         )
+    }
+
+    /// Serialize the tree to a JSON file.
+    pub fn save_to_file(&self, path: &Path) -> io::Result<()> {
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        fs::write(path, json)
+    }
+
+    /// Deserialize the tree from a JSON file.
+    pub fn load_from_file(path: &Path) -> io::Result<Self> {
+        let json = fs::read_to_string(path)?;
+        serde_json::from_str(&json).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 
     /// Render the tree as ASCII art to any writer, with color, collapsing, optional debug info (status), and optional size info.

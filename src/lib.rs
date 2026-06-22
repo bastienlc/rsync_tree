@@ -1,3 +1,4 @@
+pub use crate::tree::Tree;
 pub use crate::tree_builder::{TreeBuildError, build_tree_from_rsync_output_string};
 
 pub mod cli;
@@ -9,7 +10,7 @@ mod formatting;
 mod path_utils;
 mod rsync_parser;
 mod rsync_types;
-mod tree;
+pub mod tree;
 mod tree_builder;
 
 #[cfg(test)]

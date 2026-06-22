@@ -63,6 +63,14 @@ pub struct Args {
     /// Save rsync output to file
     #[arg(short, long, help = "Save rsync output to specified file")]
     pub save_output: Option<PathBuf>,
+
+    /// Save the built tree to a JSON file for later visualization
+    #[arg(long, help = "Save the built tree to a JSON file")]
+    pub save_tree: Option<PathBuf>,
+
+    /// Load a previously saved tree from a JSON file instead of running rsync
+    #[arg(long, help = "Load a tree from a JSON file instead of running rsync")]
+    pub load_tree: Option<PathBuf>,
 }
 
 pub fn setup_logging(level: &str) -> Result<(), Box<dyn std::error::Error>> {
