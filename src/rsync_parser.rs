@@ -81,7 +81,7 @@ pub fn parse_line(line: &str) -> ParseResult {
     let remaining = &line[11..];
 
     // Parse update type (first character)
-    let update_type_char = itemize_part.chars().nth(0).unwrap();
+    let update_type_char = itemize_part.chars().next().unwrap();
     let update_type = match UpdateType::from_str(&update_type_char.to_string()) {
         Ok(ut) => ut,
         Err(_) => return ParseResult::InvalidFormat(line.to_string()),

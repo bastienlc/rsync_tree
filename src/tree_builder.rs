@@ -92,13 +92,13 @@ fn create_child_node(
     is_included: bool,
     collect_sizes: bool,
 ) -> Result<Tree, TreeBuildError> {
-    let file_name = get_display_name(&entry_path);
+    let file_name = get_display_name(entry_path);
     let initial_status = determine_initial_status(entry_path, is_included);
     let mut child = Tree::new(file_name, entry_path.to_path_buf(), initial_status);
 
     // Collect file size if enabled and file is included
     if collect_sizes && !entry_path.is_dir() && is_included {
-        if let Ok(metadata) = fs::metadata(&entry_path) {
+        if let Ok(metadata) = fs::metadata(entry_path) {
             child.size = Some(metadata.len());
         } else {
             warn!("Failed to get metadata for file: {}", entry_path.display());
@@ -169,19 +169,23 @@ fn compute_directory_status(directory: &Tree) -> NodeStatus {
         // Empty directory that is included
         NodeStatus::DirectoryStandalone
     } else {
-        let all_children_included = directory.children.values().all(|child| match child.status {
-            NodeStatus::FileIncluded
-            | NodeStatus::DirectoryIncluded
-            | NodeStatus::DirectoryStandalone => true,
-            _ => false,
+        let all_children_included = directory.children.values().all(|child| {
+            matches!(
+                child.status,
+                NodeStatus::FileIncluded
+                    | NodeStatus::DirectoryIncluded
+                    | NodeStatus::DirectoryStandalone
+            )
         });
 
-        let any_children_included = directory.children.values().any(|child| match child.status {
-            NodeStatus::FileIncluded
-            | NodeStatus::DirectoryIncluded
-            | NodeStatus::DirectoryStandalone
-            | NodeStatus::DirectoryMixed => true,
-            _ => false,
+        let any_children_included = directory.children.values().any(|child| {
+            matches!(
+                child.status,
+                NodeStatus::FileIncluded
+                    | NodeStatus::DirectoryIncluded
+                    | NodeStatus::DirectoryStandalone
+                    | NodeStatus::DirectoryMixed
+            )
         });
 
         if all_children_included {

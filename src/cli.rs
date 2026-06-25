@@ -6,12 +6,13 @@ use std::path::PathBuf;
     name = "rsync_tree",
     about = "Execute rsync with itemize-changes and display results as a tree",
     long_about = "This tool takes an rsync command, adds --itemize-changes, executes it, \
-                  parses the output, and displays the results as a tree structure."
+                  parses the output, and displays the results as a tree structure. \
+                  It can also compare multiple previously-saved trees."
 )]
 pub struct Args {
     /// The rsync command to execute (without --itemize-changes, it will be added automatically)
     #[arg(help = "Rsync command to execute (e.g., 'rsync -av src/ dest/')")]
-    pub rsync_command: String,
+    pub rsync_command: Option<String>,
 
     /// Base path for tree construction (defaults to current directory)
     #[arg(
@@ -71,6 +72,21 @@ pub struct Args {
     /// Load a previously saved tree from a JSON file instead of running rsync
     #[arg(long, help = "Load a tree from a JSON file instead of running rsync")]
     pub load_tree: Option<PathBuf>,
+
+    // -----------------------------------------------------------------------
+    // Comparison mode flags
+    // -----------------------------------------------------------------------
+    /// Compare multiple previously-saved trees (JSON files)
+    #[arg(
+        long,
+        num_args = 2..,
+        help = "Compare multiple saved tree JSON files"
+    )]
+    pub compare: Option<Vec<PathBuf>>,
+
+    /// Ignore file sizes when comparing trees
+    #[arg(long, help = "Ignore file size differences when comparing trees")]
+    pub ignore_size: bool,
 }
 
 pub fn setup_logging(level: &str) -> Result<(), Box<dyn std::error::Error>> {

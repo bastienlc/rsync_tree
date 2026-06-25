@@ -1,5 +1,7 @@
 use anstyle::{AnsiColor, Color, Style};
 
+use crate::tree::NodeStatus;
+
 /// Format file size in human-readable format
 pub fn format_size(size: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
@@ -39,49 +41,6 @@ pub fn get_percentage_color(percentage: f64) -> Color {
         Color::Ansi(AnsiColor::White) // 5-20%: White
     } else {
         Color::Ansi(AnsiColor::BrightBlack) // 0-5%: Dark gray
-    }
-}
-
-/// Create styled text with colors based on node status
-pub fn style_node_name(name: &str, status: NodeStatus, use_color: bool) -> String {
-    if use_color {
-        match status {
-            NodeStatus::FileIncluded => {
-                let style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
-                format!("{}{}{}", style.render(), name, style.render_reset())
-            }
-            NodeStatus::DirectoryIncluded | NodeStatus::DirectoryStandalone => {
-                let style = Style::new()
-                    .fg_color(Some(Color::Ansi(AnsiColor::Green)))
-                    .bold();
-                format!("{}{}{}", style.render(), name, style.render_reset())
-            }
-            NodeStatus::FileExcluded => {
-                let style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Red)));
-                format!("{}{}{}", style.render(), name, style.render_reset())
-            }
-            NodeStatus::DirectoryExcluded => {
-                let style = Style::new()
-                    .fg_color(Some(Color::Ansi(AnsiColor::Red)))
-                    .bold();
-                format!("{}{}{}", style.render(), name, style.render_reset())
-            }
-            NodeStatus::DirectoryMixed => {
-                let style = Style::new().bold();
-                format!("{}{}{}", style.render(), name, style.render_reset())
-            }
-        }
-    } else {
-        match status {
-            NodeStatus::DirectoryIncluded
-            | NodeStatus::DirectoryStandalone
-            | NodeStatus::DirectoryExcluded
-            | NodeStatus::DirectoryMixed => {
-                let style = Style::new().bold();
-                format!("{}{}{}", style.render(), name, style.render_reset())
-            }
-            _ => name.to_string(),
-        }
     }
 }
 
@@ -131,19 +90,136 @@ pub fn format_size_info(size: Option<u64>, parent_size: Option<u64>, use_color: 
     }
 }
 
-/// Format tree connectors with optional colors
+// =========================================================================
+//  Shared colour / style helpers
+// =========================================================================
+
+/// Build an `anstyle::Style` for the given "colour category".
+///
+/// - `is_green = true`  → Green (included)
+/// - `is_green = false` → Red   (excluded)
+/// - `is_dir = true`    → bold variant
+/// - `no_colour = true` → always returns `Style::new()` (plain)
+pub fn status_style(is_green: bool, is_dir: bool, no_colour: bool) -> Style {
+    if no_colour {
+        return if is_dir {
+            Style::new().bold()
+        } else {
+            Style::new()
+        };
+    }
+    let base = if is_green {
+        Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)))
+    } else {
+        Style::new().fg_color(Some(Color::Ansi(AnsiColor::Red)))
+    };
+    if is_dir { base.bold() } else { base }
+}
+
+/// Style for "Mixed" directories (bold only, no colour).
+pub fn mixed_style() -> Style {
+    Style::new().bold()
+}
+
+/// Style for "Missing" tree entries (dim gray).
+pub fn missing_style() -> Style {
+    Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)))
+}
+
+/// DIM style for collapsed summaries.
+pub fn dim_style() -> Style {
+    Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)))
+}
+
+/// Apply `style` to `text`, wrapping with ANSI reset.
+pub fn apply_style(text: &str, style: Style) -> String {
+    format!("{}{}{}", style.render(), text, style.render_reset())
+}
+
+/// Style a node name based on `NodeStatus`.
+/// Rewritten to delegate to `status_style`.
+pub fn style_node_name(name: &str, status: NodeStatus, use_color: bool) -> String {
+    let style = match status {
+        NodeStatus::FileIncluded => status_style(true, false, !use_color),
+        NodeStatus::DirectoryIncluded | NodeStatus::DirectoryStandalone => {
+            status_style(true, true, !use_color)
+        }
+        NodeStatus::FileExcluded => status_style(false, false, !use_color),
+        NodeStatus::DirectoryExcluded => status_style(false, true, !use_color),
+        NodeStatus::DirectoryMixed => mixed_style(),
+    };
+    apply_style(name, style)
+}
+
+// =========================================================================
+//  Shared line-building helpers
+// =========================================================================
+
+/// Format the ASCII connector (`├──`, `└──`, `│`, `    `) with optional color.
 pub fn format_connector(connector: &str, use_color: bool) -> String {
     if use_color && !connector.is_empty() {
         let white_style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::White)));
-        format!(
-            "{}{}{}",
-            white_style.render(),
-            connector,
-            Style::new().render_reset()
-        )
+        apply_style(connector, white_style)
     } else {
         connector.to_string()
     }
 }
 
-use crate::tree::NodeStatus;
+/// The "connector" glyph for a tree node.
+pub fn connector_glyph(is_first: bool, is_last: bool) -> &'static str {
+    if is_first {
+        ""
+    } else if is_last {
+        "└── "
+    } else {
+        "├── "
+    }
+}
+
+/// Compute the prefix for children given the current node's position.
+pub fn compute_child_prefix(
+    current_prefix: &str,
+    is_first: bool,
+    is_last: bool,
+    color: bool,
+) -> String {
+    if is_first {
+        current_prefix.to_string()
+    } else if is_last {
+        format!("{}    ", current_prefix)
+    } else if color {
+        format!("{}{}", current_prefix, format_connector("│   ", color))
+    } else {
+        format!("{}│   ", current_prefix)
+    }
+}
+
+/// Format a collapsed summary line "(N items)" with optional dim color.
+pub fn format_collapsed_summary(count: usize, color: bool) -> String {
+    let text = format!("({} items)", count);
+    if color {
+        apply_style(&text, dim_style())
+    } else {
+        text
+    }
+}
+
+/// Write a fully-assembled line for one tree node.
+#[allow(clippy::too_many_arguments)]
+pub fn write_node_line<W: std::io::Write>(
+    w: &mut W,
+    left_margin: &str,
+    prefix: &str,
+    connector: &str,
+    styled_name: &str,
+    debug_info: &str,
+    size_info: &str,
+    color: bool,
+) -> std::io::Result<()> {
+    let styled_connector = format_connector(connector, color);
+    writeln!(
+        w,
+        "{}{}{}{}{}{}",
+        left_margin, prefix, styled_connector, styled_name, debug_info, size_info
+    )
+}

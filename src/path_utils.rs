@@ -68,7 +68,7 @@ pub fn normalize_path(path: &Path, base_path: &Path) -> PathBuf {
 /// Get the display name for a path (file name or full path if no file name)
 pub fn get_display_name(path: &Path) -> String {
     path.file_name()
-        .unwrap_or_else(|| path.as_os_str())
+        .unwrap_or(path.as_os_str())
         .to_string_lossy()
         .to_string()
 }
