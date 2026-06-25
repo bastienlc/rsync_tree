@@ -3,7 +3,6 @@
 /// When `num_trees > 0` we are in compare mode and the legend is
 /// enriched with Missing / Bold / label explanations.
 pub fn display_legends(debug: bool, show_sizes: bool, color: bool, num_trees: usize) {
-    // ------- debug legend -------
     if debug && num_trees == 0 {
         println!("\nLegend:");
         println!("  [FI] - File Included");
@@ -19,7 +18,6 @@ pub fn display_legends(debug: bool, show_sizes: bool, color: bool, num_trees: us
         println!("  [I:N E:N M:N -:N] = counts of Included, Excluded, Mixed, Missing");
     }
 
-    // ------- size legend (single-tree only) -------
     if show_sizes && num_trees == 0 {
         println!("\nSize Information:");
         println!("  Sizes shown in parentheses for included files and directories");
@@ -27,7 +25,6 @@ pub fn display_legends(debug: bool, show_sizes: bool, color: bool, num_trees: us
         println!("  Percentages show relative size compared to parent directory");
     }
 
-    // ------- colour legend -------
     let has_colour = color && num_trees == 0;
     let has_colour_compare = color && num_trees > 0;
 
@@ -42,7 +39,6 @@ pub fn display_legends(debug: bool, show_sizes: bool, color: bool, num_trees: us
         }
     }
 
-    // ------- compare-specific explanation -------
     if num_trees > 0 {
         println!("\n  Labels (JSON file names) are shown at the left when tree statuses differ.");
         println!("  When all trees agree on a node, no labels are shown.");

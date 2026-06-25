@@ -4,11 +4,9 @@ pub use crate::tree_builder::{TreeBuildError, build_tree_from_rsync_output_strin
 pub mod cli;
 pub mod command_utils;
 pub mod compare;
-pub mod compare_display;
 pub mod display;
 pub mod executor;
 
-mod formatting;
 mod path_utils;
 mod rsync_parser;
 mod rsync_types;

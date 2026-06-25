@@ -212,7 +212,7 @@ fn test_percentage_display() {
 
     // Render the tree with sizes
     let mut output = Vec::new();
-    tree.render_ascii(&mut output, false, false, false, true)
+    crate::display::render_tree(&tree, &mut output, false, false, false, true)
         .unwrap();
     let rendered = String::from_utf8_lossy(&output);
 

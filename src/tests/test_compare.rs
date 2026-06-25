@@ -1,14 +1,9 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 use crate::compare::{
-    ComparedNode, ComparisonOptions, PerTreeStatus, compare_trees, filter_diff, load_trees,
-    status_to_compare_status,
+    ComparedNode, PerTreeStatus, compare_trees, filter_diff, load_trees, status_to_compare_status,
 };
 use crate::tree::{NodeStatus, Tree};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 fn make_file(name: &str, status: NodeStatus) -> Tree {
     let mut t = Tree::new(name.into(), name.into(), status);
@@ -25,49 +20,6 @@ fn make_dir(name: &str, status: NodeStatus, children: Vec<Tree>) -> Tree {
     }
     t
 }
-
-/// Extract the set of node names present in a ComparedNode tree (DFS)
-#[allow(dead_code)]
-fn collect_names(node: &ComparedNode) -> BTreeMap<String, Vec<PerTreeStatus>> {
-    let mut result = BTreeMap::new();
-    collect_names_rec(node, &mut result);
-    result
-}
-
-#[allow(dead_code)]
-fn collect_names_rec(node: &ComparedNode, acc: &mut BTreeMap<String, Vec<PerTreeStatus>>) {
-    acc.insert(node.name.clone(), node.per_tree_status.clone());
-    for child in node.children.values() {
-        collect_names_rec(child, acc);
-    }
-}
-
-/// Extract names from a filtered tree (returns empty if None)
-#[allow(dead_code)]
-fn filtered_names(node: Option<&ComparedNode>) -> BTreeMap<String, Vec<PerTreeStatus>> {
-    match node {
-        Some(n) => collect_names(n),
-        None => BTreeMap::new(),
-    }
-}
-
-fn default_options() -> ComparisonOptions {
-    ComparisonOptions {
-        ignored_fields: HashSet::new(),
-    }
-}
-
-fn ignore_size_options() -> ComparisonOptions {
-    let mut ignored = HashSet::new();
-    ignored.insert("size".to_string());
-    ComparisonOptions {
-        ignored_fields: ignored,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Status mapping tests
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_status_mapping() {
@@ -97,10 +49,6 @@ fn test_status_mapping() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Merge / all_equal tests
-// ---------------------------------------------------------------------------
-
 #[test]
 fn test_two_identical_trees_all_equal() {
     let files = vec![make_file("f1.txt", NodeStatus::FileIncluded)];
@@ -109,7 +57,7 @@ fn test_two_identical_trees_all_equal() {
     let tree_a = make_dir("root", NodeStatus::DirectoryIncluded, vec![dir.clone()]);
     let tree_b = make_dir("root", NodeStatus::DirectoryIncluded, vec![dir]);
 
-    let compared = compare_trees(&[tree_a, tree_b], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b]);
     assert!(compared.all_equal, "Root should be all_equal");
     let src = compared.children.get("src").unwrap();
     assert!(src.all_equal, "src dir should be all_equal");
@@ -132,9 +80,8 @@ fn test_trees_different_status() {
         vec![make_file("f1.txt", NodeStatus::FileExcluded)],
     );
 
-    let compared = compare_trees(&[tree_a, tree_b], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b]);
 
-    // Root is mixed → not all_equal
     assert!(!compared.all_equal);
     let f1 = compared.children.get("f1.txt").unwrap();
     assert!(!f1.all_equal);
@@ -146,8 +93,6 @@ fn test_trees_different_status() {
 
 #[test]
 fn test_missing_file_in_one_tree() {
-    // Tree A: has f1.txt
-    // Tree B: does not have f1.txt
     let tree_a = make_dir(
         "root",
         NodeStatus::DirectoryMixed,
@@ -155,7 +100,7 @@ fn test_missing_file_in_one_tree() {
     );
     let tree_b = make_dir("root", NodeStatus::DirectoryStandalone, vec![]);
 
-    let compared = compare_trees(&[tree_a, tree_b], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b]);
 
     assert!(!compared.all_equal);
     let f1 = compared.children.get("f1.txt").unwrap();
@@ -168,7 +113,6 @@ fn test_missing_file_in_one_tree() {
 
 #[test]
 fn test_ignore_size_equality() {
-    // Two files with different sizes but same status
     let mut f_a = make_file("f1.txt", NodeStatus::FileIncluded);
     f_a.size = Some(100);
     let mut f_b = make_file("f1.txt", NodeStatus::FileIncluded);
@@ -177,16 +121,11 @@ fn test_ignore_size_equality() {
     let tree_a = make_dir("root", NodeStatus::DirectoryIncluded, vec![f_a]);
     let tree_b = make_dir("root", NodeStatus::DirectoryIncluded, vec![f_b]);
 
-    // Without ignore-size: they're equal because size maps to same PerTreeStatus
-    let compared = compare_trees(&[tree_a.clone(), tree_b.clone()], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b]);
     assert!(
         compared.all_equal,
         "Should be equal: size maps to same PerTreeStatus"
     );
-
-    // Verify ignore-size option doesn't break anything
-    let compared2 = compare_trees(&[tree_a, tree_b], &ignore_size_options());
-    assert!(compared2.all_equal);
 }
 
 #[test]
@@ -216,7 +155,7 @@ fn test_three_trees_merge() {
         vec![make_file("f1.txt", NodeStatus::FileExcluded)],
     );
 
-    let compared = compare_trees(&[tree_a, tree_b, tree_c], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b, tree_c]);
 
     // Check per-tree statuses
     let f1 = compared.children.get("f1.txt").unwrap();
@@ -240,10 +179,6 @@ fn test_three_trees_merge() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Filter tests
-// ---------------------------------------------------------------------------
-
 #[test]
 fn test_diff_mode_filters_equal_nodes() {
     // All nodes equal → filter_diff returns None
@@ -252,7 +187,7 @@ fn test_diff_mode_filters_equal_nodes() {
         NodeStatus::DirectoryIncluded,
         vec![make_file("f1.txt", NodeStatus::FileIncluded)],
     );
-    let compared = compare_trees(&[tree.clone(), tree], &default_options());
+    let compared = compare_trees(&[tree.clone(), tree]);
     let filtered = filter_diff(&compared);
     assert!(
         filtered.is_none(),
@@ -273,19 +208,14 @@ fn test_diff_mode_keeps_different_nodes() {
         vec![make_file("f1.txt", NodeStatus::FileExcluded)],
     );
 
-    let compared = compare_trees(&[tree_a, tree_b], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b]);
     let filtered = filter_diff(&compared).unwrap();
 
-    // Root should be kept
     assert_eq!(filtered.name, "root");
     // f1.txt should be kept (it differs)
     let f1 = filtered.children.get("f1.txt").unwrap();
     assert!(!f1.all_equal);
 }
-
-// ---------------------------------------------------------------------------
-// Collapsing tests
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_collapse_diff_non_mixed() {
@@ -309,11 +239,10 @@ fn test_collapse_diff_non_mixed() {
         )],
     );
 
-    let compared = compare_trees(&[tree_a, tree_b], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b]);
     let filtered = filter_diff(&compared).unwrap();
     let dir = filtered.children.get("dir").unwrap();
 
-    // dir differs, and statuses are [Included, Excluded] → no Mixed → can collapse
     assert!(!dir.all_equal);
     assert!(
         dir.can_collapse(),
@@ -323,7 +252,6 @@ fn test_collapse_diff_non_mixed() {
 
 #[test]
 fn test_collapse_diff_mixed() {
-    // Directory where one tree has Mixed status
     let tree_a = make_dir(
         "root",
         NodeStatus::DirectoryMixed,
@@ -349,20 +277,15 @@ fn test_collapse_diff_mixed() {
         )],
     );
 
-    let compared = compare_trees(&[tree_a, tree_b], &default_options());
+    let compared = compare_trees(&[tree_a, tree_b]);
     let filtered = filter_diff(&compared).unwrap();
     let dir = filtered.children.get("dir").unwrap();
 
-    // dir has [Mixed, Included] → has Mixed → cannot collapse
     assert!(
         !dir.can_collapse(),
         "dir with Mixed status should NOT be collapsible"
     );
 }
-
-// ---------------------------------------------------------------------------
-// Loading / validation tests
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_load_trees_root_name_mismatch() {
@@ -392,10 +315,6 @@ fn test_less_than_two_trees_errors() {
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("At least 2 trees"));
 }
-
-// ---------------------------------------------------------------------------
-// Display / edge case
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_empty_children_display() {

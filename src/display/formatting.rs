@@ -26,25 +26,25 @@ pub fn format_size(size: u64) -> String {
     }
 }
 
-/// Get color for percentage based on a white-orange scale
-/// Higher percentages get more intense orange/red colors
+/// Get color for percentage based on a white-orange scale.
+/// Higher percentages get more intense orange/red colors.
 pub fn get_percentage_color(percentage: f64) -> Color {
     if percentage >= 80.0 {
-        Color::Ansi(AnsiColor::BrightRed) // 80-100%: Bright Red
+        Color::Ansi(AnsiColor::BrightRed)
     } else if percentage >= 60.0 {
-        Color::Ansi(AnsiColor::Red) // 60-80%: Red
+        Color::Ansi(AnsiColor::Red)
     } else if percentage >= 40.0 {
-        Color::Ansi(AnsiColor::Yellow) // 40-60%: Yellow (orange-ish)
+        Color::Ansi(AnsiColor::Yellow)
     } else if percentage >= 20.0 {
-        Color::Ansi(AnsiColor::BrightYellow) // 20-40%: Bright Yellow
+        Color::Ansi(AnsiColor::BrightYellow)
     } else if percentage >= 5.0 {
-        Color::Ansi(AnsiColor::White) // 5-20%: White
+        Color::Ansi(AnsiColor::White)
     } else {
-        Color::Ansi(AnsiColor::BrightBlack) // 0-5%: Dark gray
+        Color::Ansi(AnsiColor::BrightBlack)
     }
 }
 
-/// Format debug information for node status
+/// Format debug information for node status.
 pub fn format_debug_info(status: NodeStatus) -> String {
     match status {
         NodeStatus::FileIncluded => "[FI]",
@@ -57,7 +57,7 @@ pub fn format_debug_info(status: NodeStatus) -> String {
     .to_string()
 }
 
-/// Format size information with optional percentage
+/// Format size information with optional percentage.
 pub fn format_size_info(size: Option<u64>, parent_size: Option<u64>, use_color: bool) -> String {
     match size {
         Some(size) => {
@@ -89,10 +89,6 @@ pub fn format_size_info(size: Option<u64>, parent_size: Option<u64>, use_color: 
         None => String::new(),
     }
 }
-
-// =========================================================================
-//  Shared colour / style helpers
-// =========================================================================
 
 /// Build an `anstyle::Style` for the given "colour category".
 ///
@@ -137,7 +133,6 @@ pub fn apply_style(text: &str, style: Style) -> String {
 }
 
 /// Style a node name based on `NodeStatus`.
-/// Rewritten to delegate to `status_style`.
 pub fn style_node_name(name: &str, status: NodeStatus, use_color: bool) -> String {
     let style = match status {
         NodeStatus::FileIncluded => status_style(true, false, !use_color),
@@ -150,10 +145,6 @@ pub fn style_node_name(name: &str, status: NodeStatus, use_color: bool) -> Strin
     };
     apply_style(name, style)
 }
-
-// =========================================================================
-//  Shared line-building helpers
-// =========================================================================
 
 /// Format the ASCII connector (`├──`, `└──`, `│`, `    `) with optional color.
 pub fn format_connector(connector: &str, use_color: bool) -> String {

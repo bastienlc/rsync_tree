@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use crate::tree::{NodeStatus, Tree};
@@ -12,11 +12,6 @@ pub enum PerTreeStatus {
 }
 
 #[derive(Debug, Clone)]
-pub struct ComparisonOptions {
-    pub ignored_fields: HashSet<String>,
-}
-
-#[derive(Debug, Clone)]
 pub struct ComparedNode {
     pub name: String,
     pub per_tree_status: Vec<PerTreeStatus>,
@@ -24,10 +19,6 @@ pub struct ComparedNode {
     pub all_equal: bool,
     pub is_directory: bool,
 }
-
-// ---------------------------------------------------------------------------
-// Status mapping helpers
-// ---------------------------------------------------------------------------
 
 /// Map a NodeStatus to a PerTreeStatus
 pub fn status_to_compare_status(status: NodeStatus) -> PerTreeStatus {
@@ -49,10 +40,6 @@ fn status_is_directory(status: NodeStatus) -> bool {
             | NodeStatus::DirectoryStandalone
     )
 }
-
-// ---------------------------------------------------------------------------
-// Loading
-// ---------------------------------------------------------------------------
 
 /// Load trees from JSON files, validating that all roots have the same name.
 pub fn load_trees(paths: &[PathBuf]) -> Result<Vec<Tree>, String> {
@@ -89,24 +76,18 @@ pub fn load_trees(paths: &[PathBuf]) -> Result<Vec<Tree>, String> {
     Ok(trees)
 }
 
-// ---------------------------------------------------------------------------
-// Merging
-// ---------------------------------------------------------------------------
-
 /// Compare multiple trees and build a ComparedNode.
-pub fn compare_trees(trees: &[Tree], options: &ComparisonOptions) -> ComparedNode {
+pub fn compare_trees(trees: &[Tree]) -> ComparedNode {
     let tree_refs: Vec<Option<&Tree>> = trees.iter().map(Some).collect();
-    merge_trees(&tree_refs, options)
+    merge_trees(&tree_refs)
 }
 
 /// Recursively merge N trees into a single ComparedNode tree.
 ///
 /// `trees[i]` is `Some(tree)` if tree i has a node at this position,
 /// or `None` if tree i has no such node (→ `PerTreeStatus::Missing`).
-///
-/// Complexity: O(total_nodes) time, O(union_size × N) memory.
 #[allow(clippy::only_used_in_recursion)]
-fn merge_trees(trees: &[Option<&Tree>], options: &ComparisonOptions) -> ComparedNode {
+fn merge_trees(trees: &[Option<&Tree>]) -> ComparedNode {
     // Per-tree status for this node
     let per_tree_status: Vec<PerTreeStatus> = trees
         .iter()
@@ -132,7 +113,7 @@ fn merge_trees(trees: &[Option<&Tree>], options: &ComparisonOptions) -> Compared
             .map(|t| t.and_then(|tree| tree.children.get(child_name)))
             .collect();
 
-        let merged_child = merge_trees(&child_refs, options);
+        let merged_child = merge_trees(&child_refs);
         children.insert(child_name.clone(), merged_child);
     }
 
@@ -162,10 +143,6 @@ fn merge_trees(trees: &[Option<&Tree>], options: &ComparisonOptions) -> Compared
     }
 }
 
-// ---------------------------------------------------------------------------
-// Filtering
-// ---------------------------------------------------------------------------
-
 /// Filter the tree for diff mode.
 ///
 /// Keep only nodes where `all_equal == false`. Nodes where all trees agree
@@ -190,10 +167,6 @@ pub fn filter_diff(node: &ComparedNode) -> Option<ComparedNode> {
         is_directory: node.is_directory,
     })
 }
-
-// ---------------------------------------------------------------------------
-// Collapsing helper (used by the display layer)
-// ---------------------------------------------------------------------------
 
 impl ComparedNode {
     /// Can this directory be collapsed in diff mode?

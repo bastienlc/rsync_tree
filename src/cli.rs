@@ -73,9 +73,6 @@ pub struct Args {
     #[arg(long, help = "Load a tree from a JSON file instead of running rsync")]
     pub load_tree: Option<PathBuf>,
 
-    // -----------------------------------------------------------------------
-    // Comparison mode flags
-    // -----------------------------------------------------------------------
     /// Compare multiple previously-saved trees (JSON files)
     #[arg(
         long,
