@@ -1,4 +1,4 @@
-use crate::command_utils::{add_required_flags, parse_command, remove_flags};
+use crate::command_utils::{parse_command, remove_flags, validate_flags};
 
 #[test]
 fn test_parse_command() {
@@ -7,22 +7,25 @@ fn test_parse_command() {
 }
 
 #[test]
-fn test_add_required_flags() {
+fn test_validate_flags() {
     let args = vec!["rsync".to_string(), "-av".to_string()];
-    let result = add_required_flags(args);
-    assert!(result.contains(&"--dry-run".to_string()));
-    assert!(result.contains(&"--itemize-changes".to_string()));
+    let result = validate_flags(&args);
+    assert!(result.is_err(), "expected error when flags are missing");
+    assert!(
+        result.unwrap_err().contains("--dry-run"),
+        "error should mention --dry-run"
+    );
 }
 
 #[test]
-fn test_add_required_flags_already_present() {
+fn test_validate_flags_already_present() {
     let args = vec![
         "rsync".to_string(),
         "-av".to_string(),
         "--dry-run".to_string(),
         "--itemize-changes".to_string(),
     ];
-    let result = add_required_flags(args.clone());
+    let result = validate_flags(&args).unwrap();
     // Should have exactly the same flags, no duplicates
     assert_eq!(result.len(), args.len());
     assert!(result.contains(&"--dry-run".to_string()));
@@ -44,13 +47,15 @@ fn test_remove_flags() {
 }
 
 #[test]
-fn test_add_required_flags_removes_out_format() {
+fn test_validate_flags_removes_out_format() {
     let args = vec![
         "rsync".to_string(),
         "-av".to_string(),
+        "--dry-run".to_string(),
+        "--itemize-changes".to_string(),
         "--out-format=%i %n%L".to_string(),
     ];
-    let result = add_required_flags(args);
+    let result = validate_flags(&args).unwrap();
     assert!(!result.iter().any(|arg| arg.starts_with("--out-format")));
     assert!(result.contains(&"--dry-run".to_string()));
     assert!(result.contains(&"--itemize-changes".to_string()));

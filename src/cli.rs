@@ -5,13 +5,15 @@ use std::path::PathBuf;
 #[command(
     name = "rsync_tree",
     about = "Execute rsync with itemize-changes and display results as a tree",
-    long_about = "This tool takes an rsync command, adds --itemize-changes, executes it, \
-                  parses the output, and displays the results as a tree structure. \
+    long_about = "This tool takes an rsync command with --dry-run and --itemize-changes, \
+                  executes it, parses the output, and displays the results as a tree structure. \
                   It can also compare multiple previously-saved trees."
 )]
 pub struct Args {
-    /// The rsync command to execute (without --itemize-changes, it will be added automatically)
-    #[arg(help = "Rsync command to execute (e.g., 'rsync -av src/ dest/')")]
+    /// The rsync command to execute (must include --dry-run and --itemize-changes)
+    #[arg(
+        help = "Rsync command to execute (e.g., 'rsync -av --dry-run --itemize-changes src/ dest/')"
+    )]
     pub rsync_command: Option<String>,
 
     /// Base path for tree construction (defaults to current directory)

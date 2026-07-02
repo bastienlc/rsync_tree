@@ -8,7 +8,7 @@ use rsync_tree::compare::{compare_trees, filter_diff, load_trees};
 use rsync_tree::display::{self, render_compare_tree};
 
 use crate::cli::Args;
-use crate::command_utils::{add_required_flags, determine_base_path, parse_command};
+use crate::command_utils::{determine_base_path, parse_command, validate_flags};
 use crate::executor::execute_rsync_with_output;
 
 /// Run single-tree analysis mode.
@@ -40,7 +40,10 @@ pub fn run_single_mode(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Run comparison mode.
-pub fn run_compare_mode(tree_paths: &[PathBuf], args: &Args) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run_compare_mode(
+    tree_paths: &[PathBuf],
+    args: &Args,
+) -> Result<(), Box<dyn std::error::Error>> {
     let trees = load_trees(tree_paths).map_err(|e| e.to_string())?;
     info!("Loaded {} tree(s) for comparison", trees.len());
 
@@ -65,7 +68,13 @@ pub fn run_compare_mode(tree_paths: &[PathBuf], args: &Args) -> Result<(), Box<d
         Some(root) => {
             println!("\nTree Comparison — Differences:");
             println!("========================");
-            render_compare_tree(&root, &mut std::io::stdout(), args.color, args.debug, &tree_labels)?;
+            render_compare_tree(
+                &root,
+                &mut std::io::stdout(),
+                args.color,
+                args.debug,
+                &tree_labels,
+            )?;
             display::display_legends(false, false, args.color, num_trees);
         }
         None => {
@@ -126,7 +135,8 @@ fn run_rsync(args: &Args) -> Result<(String, PathBuf), Box<dyn std::error::Error
         return Err(format!("Command must start with 'rsync', got: '{}'", rsync_args[0]).into());
     }
 
-    rsync_args = add_required_flags(rsync_args);
+    rsync_args =
+        validate_flags(&rsync_args).map_err(|e| format!("Invalid rsync command: {}", e))?;
 
     let base_path = determine_base_path(&rsync_args, args.base_path.as_ref());
     info!("Using base path: {}", base_path.display());

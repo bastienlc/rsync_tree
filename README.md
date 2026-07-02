@@ -2,13 +2,13 @@
 
 Visualize exactly which files rsync will include or exclude — before running the actual sync.
 
-`rsync_tree` takes an rsync command, adds `--dry-run` and `--itemize-changes`, executes it, parses the output, and presents a color-coded hierarchical tree of what will be transferred. It can also **compare multiple saved snapshots** to highlight differences between backups.
+`rsync_tree` takes an rsync command (which **must** include `--dry-run` and `--itemize-changes`), executes it, parses the output, and presents a color-coded hierarchical tree of what will be transferred. It can also **compare multiple saved snapshots** to highlight differences between backups.
 
 Please read the [Current Limitations & Known Issues](#current-limitations--known-issues) before using.
 
 ## Features
 
-- **Automatic dry-run** — injects `--dry-run` so nothing is ever transferred
+- **Dry-run safety** — rsync_tree requires `--dry-run` so nothing is ever transferred
 - **Tree visualization** — green (included), red (excluded), gray (missing), bold white (mixed)
 - **Size analysis** — file/directory sizes with percentage of parent
 - **Collapsible view** — compress fully-included or fully-excluded subtrees
@@ -30,16 +30,18 @@ Requires Rust and rsync.
 
 ## Usage
 
+**Important:** Your rsync command **must** include both `--dry-run` (or `-n`) and `--itemize-changes` (or `-i`). The tool will exit with an error if either is missing.
+
 ### Single-tree mode (default)
 
 ```bash
-rsync_tree "rsync -av /source/ /destination/"
+rsync_tree "rsync -av --dry-run --itemize-changes /source/ /destination/"
 ```
 
 ### Save a tree snapshot for later comparison
 
 ```bash
-rsync_tree "rsync -av /source/ /destination/" --save-tree backup-week1.json
+rsync_tree "rsync -av --dry-run --itemize-changes /source/ /destination/" --save-tree backup-week1.json
 ```
 
 ### Load a previously saved tree (skip running rsync)

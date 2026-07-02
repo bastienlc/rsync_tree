@@ -23,33 +23,38 @@ pub fn remove_flags(mut args: Vec<String>, flags_to_remove: &[&str]) -> Vec<Stri
     args
 }
 
-/// Add required flags to rsync command for proper analysis
-pub fn add_required_flags(mut args: Vec<String>) -> Vec<String> {
+/// Validate that required flags are present in the rsync command, and remove
+/// conflicting flags. Returns an error if `--dry-run` (or `-n`) or
+/// `--itemize-changes` (or `-i`) are missing.
+pub fn validate_flags(args: &[String]) -> Result<Vec<String>, String> {
+    let mut cleaned = args.to_vec();
+
     // Remove --out-format flag if present (conflicts with --itemize-changes)
-    args = remove_flags(args, &["--out-format"]);
+    cleaned = remove_flags(cleaned, &["--out-format"]);
     // Remove --verbose flag if present (we want only itemized output)
-    args = remove_flags(args, &["-v", "--verbose"]);
+    cleaned = remove_flags(cleaned, &["-v", "--verbose"]);
 
-    // Add --dry-run flag if not present
-    if !args.iter().any(|arg| arg == "--dry-run" || arg == "-n") {
-        args.push("--dry-run".to_string());
-        info!("Added --dry-run flag to rsync command");
-    } else {
-        info!("--dry-run flag already present in command");
+    // Check --dry-run / -n is present
+    let has_dry_run = cleaned.iter().any(|arg| arg == "--dry-run" || arg == "-n");
+    if !has_dry_run {
+        return Err("Missing required flag: --dry-run (or -n). \
+             This flag is required to prevent accidental file transfers."
+            .into());
     }
+    info!("--dry-run flag is present");
 
-    // Add --itemize-changes flag if not present
-    if !args
+    // Check --itemize-changes / -i is present
+    let has_itemize = cleaned
         .iter()
-        .any(|arg| arg == "--itemize-changes" || arg == "-i")
-    {
-        args.push("--itemize-changes".to_string());
-        info!("Added --itemize-changes flag to rsync command");
-    } else {
-        info!("--itemize-changes flag already present in command");
+        .any(|arg| arg == "--itemize-changes" || arg == "-i");
+    if !has_itemize {
+        return Err("Missing required flag: --itemize-changes (or -i). \
+             This flag is required to produce the itemized output that rsync_tree parses."
+            .into());
     }
+    info!("--itemize-changes flag is present");
 
-    args
+    Ok(cleaned)
 }
 
 /// Determine the base path from rsync arguments or use provided path
