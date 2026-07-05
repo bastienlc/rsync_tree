@@ -35,7 +35,7 @@ pub fn display_legends(debug: bool, show_sizes: bool, color: bool, num_trees: us
         println!("  \x1b[1mWhite\x1b[0m   – Mixed directories");
         if num_trees > 0 {
             println!("  \x1b[90mGray\x1b[0m    – Missing (file/dir does not exist in this tree)");
-            println!("  \x1b[1mBold\x1b[0m     – Directory");
+            println!("  \x1b[1mBold\x1b[0m    – Directory");
         }
     }
 
