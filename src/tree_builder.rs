@@ -197,20 +197,3 @@ fn compute_directory_status(directory: &Tree) -> NodeStatus {
         }
     }
 }
-
-/// Convenience function to build tree from rsync output string
-pub fn build_tree_from_rsync_output_string(
-    output: &str,
-    base_path: &Path,
-    collect_sizes: bool,
-) -> Result<Tree, TreeBuildError> {
-    let parse_results = crate::rsync_parser::parse_rsync_output(output);
-
-    for result in &parse_results {
-        if let ParseResult::InvalidFormat(line) = result {
-            warn!("Could not parse line: {}", line);
-        }
-    }
-
-    build_tree_from_rsync_output(parse_results, base_path, collect_sizes)
-}

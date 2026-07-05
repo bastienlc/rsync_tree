@@ -2,18 +2,19 @@
 
 Visualize exactly which files rsync will include or exclude — before running the actual sync.
 
-`rsync_tree` takes an rsync command (which **must** include `--dry-run` and `--itemize-changes`), executes it, parses the output, and presents a color-coded hierarchical tree of what will be transferred. It can also **compare multiple saved snapshots** to highlight differences between backups.
+`rsync_tree` reads rsync's `--itemize-changes` output from **stdin** (piped by the user), parses it, and presents a color-coded hierarchical tree of what will be transferred. It can also **compare multiple saved snapshots** to highlight differences between backups.
 
 Please read the [Current Limitations & Known Issues](#current-limitations--known-issues) before using.
 
 ## Features
 
-- **Dry-run safety** — rsync_tree requires `--dry-run` so nothing is ever transferred
+- **Pipe-friendly** — reads rsync `--itemize-changes` directly from stdin
 - **Tree visualization** — green (included), red (excluded), gray (missing), bold white (mixed)
 - **Size analysis** — file/directory sizes with percentage of parent
 - **Collapsible view** — compress fully-included or fully-excluded subtrees
 - **Compare mode** — diff multiple saved trees side-by-side to see what changed between backups
 - **Save / Load** — serialize trees to JSON for later inspection or comparison
+- **Progress feedback** — line count and parse warnings printed to stderr during processing
 
 ## Design Philosophy
 
@@ -26,22 +27,30 @@ cargo build --release
 # binary at target/release/rsync_tree
 ```
 
-Requires Rust and rsync.
+Requires Rust.
 
 ## Usage
 
-**Important:** Your rsync command **must** include both `--dry-run` (or `-n`) and `--itemize-changes` (or `-i`). The tool will exit with an error if either is missing.
+`rsync_tree` reads rsync's `--itemize-changes` output from **stdin**. Pipe the output of your rsync dry-run into the tool.
+
+**Important:** The `--base-path` / `-b` option is **required** for single-tree mode. It tells `rsync_tree` where the source directory lives on your filesystem so it can build the tree correctly. This is necessary because rsync's output only shows relative paths.
 
 ### Single-tree mode (default)
 
 ```bash
-rsync_tree "rsync -av --dry-run --itemize-changes /source/ /destination/"
+rsync -av --dry-run --itemize-changes /source/ /destination/ | rsync_tree --base-path /source/
+```
+
+To save the raw rsync output while also piping to rsync_tree, use `tee`:
+
+```bash
+rsync -av --dry-run --itemize-changes /source/ /destination/ | tee output.txt | rsync_tree --base-path /source/
 ```
 
 ### Save a tree snapshot for later comparison
 
 ```bash
-rsync_tree "rsync -av --dry-run --itemize-changes /source/ /destination/" --save-tree backup-week1.json
+rsync -av --dry-run --itemize-changes /source/ /destination/ | rsync_tree --base-path /source/ --save-tree backup-week1.json
 ```
 
 ### Load a previously saved tree (skip running rsync)
@@ -63,7 +72,7 @@ Only nodes that differ between trees are shown. When trees disagree, labels (the
 ```
 Options:
   -b, --base-path <BASE_PATH>
-          Base path for tree construction [default: current directory]
+          Base path for tree construction (REQUIRED for single-tree mode)
 
   -c, --color
           Enable colored tree output [default: true]
@@ -79,9 +88,6 @@ Options:
 
   --log-level <LOG_LEVEL>
           Logging level (error, warn, info, debug, trace) [default: info]
-
-  -s, --save-output <SAVE_OUTPUT>
-          Save raw rsync output to file
 
   --save-tree <PATH>
           Serialize the constructed tree to a JSON file

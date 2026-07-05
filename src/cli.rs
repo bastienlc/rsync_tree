@@ -4,25 +4,16 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(
     name = "rsync_tree",
-    about = "Execute rsync with itemize-changes and display results as a tree",
-    long_about = "This tool takes an rsync command with --dry-run and --itemize-changes, \
-                  executes it, parses the output, and displays the results as a tree structure. \
-                  It can also compare multiple previously-saved trees."
+    about = "Read rsync --itemize-changes output from stdin and display results as a tree",
+    long_about = "This tool reads rsync's --itemize-changes output from stdin, \
+                  parses it, and displays the results as a tree structure. \
+                  It can also compare multiple previously-saved trees. \
+                  \n\nUsage: rsync -av --dry-run --itemize-changes src/ dest/ | rsync_tree --base-path src/"
 )]
 pub struct Args {
-    /// The rsync command to execute (must include --dry-run and --itemize-changes)
-    #[arg(
-        help = "Rsync command to execute (e.g., 'rsync -av --dry-run --itemize-changes src/ dest/')"
-    )]
-    pub rsync_command: Option<String>,
-
-    /// Base path for tree construction (defaults to current directory)
-    #[arg(
-        short,
-        long,
-        help = "Base path for tree construction (defaults to current directory)"
-    )]
-    pub base_path: Option<PathBuf>,
+    /// Base path for tree construction (REQUIRED)
+    #[arg(short, long, help = "Base path for tree construction (required)")]
+    pub base_path: PathBuf,
 
     /// Enable colored output
     #[arg(
@@ -62,10 +53,6 @@ pub struct Args {
         help = "Set logging level (error, warn, info, debug, trace)"
     )]
     pub log_level: String,
-
-    /// Save rsync output to file
-    #[arg(short, long, help = "Save rsync output to specified file")]
-    pub save_output: Option<PathBuf>,
 
     /// Save the built tree to a JSON file for later visualization
     #[arg(long, help = "Save the built tree to a JSON file")]

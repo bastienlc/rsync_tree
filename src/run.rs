@@ -1,25 +1,43 @@
 use log::{debug, info, warn};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use rsync_tree::Tree;
 use rsync_tree::TreeBuildError;
-use rsync_tree::build_tree_from_rsync_output_string;
+use rsync_tree::build_tree_from_rsync_output;
 use rsync_tree::compare::{compare_trees, filter_diff, load_trees};
 use rsync_tree::display::{self, render_compare_tree};
+use rsync_tree::rsync_types::ParseResult;
 
 use crate::cli::Args;
-use crate::command_utils::{determine_base_path, parse_command, validate_flags};
-use crate::executor::execute_rsync_with_output;
 
 /// Run single-tree analysis mode.
-pub fn run_single_mode(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run_single_mode(
+    parse_results: Vec<ParseResult>,
+    args: &Args,
+) -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting rsync tree analysis");
-    debug!("Arguments: {:?}", args);
+    debug!("Number of parse results: {}", parse_results.len());
 
-    let tree = match acquire_tree(args)? {
-        Some(tree) => tree,
-        None => return Ok(()),
-    };
+    if parse_results.is_empty() {
+        warn!("No parseable items received from stdin");
+        info!("This might indicate an empty rsync output or no files to synchronize");
+        return Ok(());
+    }
+
+    info!("Building tree from parsed results...");
+    let tree = build_tree_from_rsync_output(parse_results, &args.base_path, args.show_sizes)
+        .map_err(|e| match e {
+            TreeBuildError::IoError(e) => format!("IO error while building tree: {}", e),
+            TreeBuildError::InvalidPath(path) => {
+                format!("Invalid path encountered while building tree: {}", path)
+            }
+        })?;
+
+    if let Some(ref save_path) = args.save_tree {
+        info!("Saving tree to file: {}", save_path.display());
+        tree.save_to_file(save_path)
+            .map_err(|e| format!("Failed to save tree to {}: {}", save_path.display(), e))?;
+        info!("Tree saved successfully");
+    }
 
     println!("\nRsync Analysis Tree:");
     println!("===================");
@@ -84,82 +102,4 @@ pub fn run_compare_mode(
 
     info!("Comparison completed successfully");
     Ok(())
-}
-
-/// Load a tree from a saved file or build one by running rsync.
-/// Returns `None` when rsync produces no output.
-fn acquire_tree(args: &Args) -> Result<Option<Tree>, Box<dyn std::error::Error>> {
-    if let Some(ref load_path) = args.load_tree {
-        info!("Loading tree from file: {}", load_path.display());
-        let tree = Tree::load_from_file(load_path)
-            .map_err(|e| format!("Failed to load tree from {}: {}", load_path.display(), e))?;
-        info!("Tree loaded successfully");
-        return Ok(Some(tree));
-    }
-
-    let (rsync_output, base_path) = run_rsync(args)?;
-
-    if rsync_output.trim().is_empty() {
-        warn!("No output received from rsync command");
-        info!("This might indicate that no files needed to be synchronized");
-        return Ok(None);
-    }
-
-    info!("Building tree from rsync output...");
-    debug!("Rsync output length: {} characters", rsync_output.len());
-
-    let tree = build_tree(&rsync_output, &base_path, args.show_sizes)?;
-
-    if let Some(ref save_path) = args.save_tree {
-        info!("Saving tree to file: {}", save_path.display());
-        tree.save_to_file(save_path)
-            .map_err(|e| format!("Failed to save tree to {}: {}", save_path.display(), e))?;
-        info!("Tree saved successfully");
-    }
-
-    Ok(Some(tree))
-}
-
-/// Validate the rsync command, add required flags, execute it, and return
-/// the captured output together with the detected base path.
-fn run_rsync(args: &Args) -> Result<(String, PathBuf), Box<dyn std::error::Error>> {
-    let rsync_command = args.rsync_command.as_ref().ok_or(
-        "No rsync command provided. Use --compare to compare trees, or provide an rsync command.",
-    )?;
-
-    let mut rsync_args = parse_command(rsync_command);
-    if rsync_args.is_empty() {
-        return Err("Empty rsync command provided".into());
-    }
-    if rsync_args[0] != "rsync" {
-        return Err(format!("Command must start with 'rsync', got: '{}'", rsync_args[0]).into());
-    }
-
-    rsync_args =
-        validate_flags(&rsync_args).map_err(|e| format!("Invalid rsync command: {}", e))?;
-
-    let base_path = determine_base_path(&rsync_args, args.base_path.as_ref());
-    info!("Using base path: {}", base_path.display());
-
-    let output = execute_rsync_with_output(rsync_args, args.save_output.as_ref())
-        .map_err(|e| format!("Failed to execute rsync command: {}", e))?;
-
-    Ok((output, base_path))
-}
-
-/// Parse the rsync output string into a `Tree`, mapping errors to user-friendly messages.
-fn build_tree(
-    output: &str,
-    base_path: &Path,
-    show_sizes: bool,
-) -> Result<Tree, Box<dyn std::error::Error>> {
-    match build_tree_from_rsync_output_string(output, base_path, show_sizes) {
-        Ok(tree) => Ok(tree),
-        Err(TreeBuildError::IoError(e)) => {
-            Err(format!("IO error while building tree: {}", e).into())
-        }
-        Err(TreeBuildError::InvalidPath(path)) => {
-            Err(format!("Invalid path encountered while building tree: {}", path).into())
-        }
-    }
 }
