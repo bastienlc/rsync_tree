@@ -5,16 +5,20 @@ use rsync_tree::input::read_and_parse_stdin;
 mod cli;
 mod run;
 
-use cli::{Args, setup_logging};
+use cli::{Args, Command, setup_logging};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    setup_logging(&args.log_level)?;
 
-    if let Some(ref tree_paths) = args.compare {
-        return run::run_compare_mode(tree_paths, &args);
+    match args.command {
+        Command::Build(tree_args) => {
+            setup_logging(&tree_args.log_level)?;
+            let parse_results = read_and_parse_stdin()?;
+            run::run_single_mode(parse_results, &tree_args)
+        }
+        Command::Compare(compare_args) => {
+            setup_logging(&compare_args.log_level)?;
+            run::run_compare_mode(&compare_args)
+        }
     }
-
-    let parse_results = read_and_parse_stdin()?;
-    run::run_single_mode(parse_results, &args)
 }

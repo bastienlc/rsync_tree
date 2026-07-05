@@ -1,5 +1,4 @@
 use log::{debug, info, warn};
-use std::path::PathBuf;
 
 use rsync_tree::TreeBuildError;
 use rsync_tree::build_tree_from_rsync_output;
@@ -7,12 +6,12 @@ use rsync_tree::compare::{compare_trees, filter_diff, load_trees};
 use rsync_tree::display::{self, render_compare_tree};
 use rsync_tree::rsync_types::ParseResult;
 
-use crate::cli::Args;
+use crate::cli::{BuildArgs, CompareArgs};
 
 /// Run single-tree analysis mode.
 pub fn run_single_mode(
     parse_results: Vec<ParseResult>,
-    args: &Args,
+    args: &BuildArgs,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting rsync tree analysis");
     debug!("Number of parse results: {}", parse_results.len());
@@ -58,18 +57,16 @@ pub fn run_single_mode(
 }
 
 /// Run comparison mode.
-pub fn run_compare_mode(
-    tree_paths: &[PathBuf],
-    args: &Args,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let trees = load_trees(tree_paths).map_err(|e| e.to_string())?;
+pub fn run_compare_mode(args: &CompareArgs) -> Result<(), Box<dyn std::error::Error>> {
+    let trees = load_trees(&args.paths).map_err(|e| e.to_string())?;
     info!("Loaded {} tree(s) for comparison", trees.len());
 
     info!("Building comparison tree...");
     let compared = compare_trees(&trees);
     info!("Comparison tree built successfully");
 
-    let tree_labels: Vec<String> = tree_paths
+    let tree_labels: Vec<String> = args
+        .paths
         .iter()
         .map(|p| {
             p.file_stem()

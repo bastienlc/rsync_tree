@@ -18,7 +18,7 @@ Please read the [Current Limitations & Known Issues](#current-limitations--known
 
 ## Design Philosophy
 
-Rather than reimplementing rsync's pattern matching, `rsync_tree` parses rsync's own `--itemize-changes` output. This guarantees accuracy even with complex nested `--include`/`--exclude` rules, anchor patterns, and order-dependent matching.
+Rather than reimplementing rsync's pattern matching, `rsync_tree` parses rsync's own `--itemize-changes` output. This guarantees accuracy even with complex nested `--include`/`--exclude` rules and order-dependent matching.
 
 ## Installation
 
@@ -33,49 +33,51 @@ Requires Rust.
 
 `rsync_tree` reads rsync's `--itemize-changes` output from **stdin**. Pipe the output of your rsync dry-run into the tool.
 
-**Important:** The `--base-path` / `-b` option is **required** for single-tree mode. It tells `rsync_tree` where the source directory lives on your filesystem so it can build the tree correctly. This is necessary because rsync's output only shows relative paths.
+**Important:** The `--base-path` / `-b` option is **required** for the `build` subcommand. It tells `rsync_tree` where the source directory lives on your filesystem so it can build the tree correctly. This is necessary because rsync's output only shows relative paths.
 
-### Single-tree mode (default)
+### Build mode
 
 ```bash
-rsync -av --dry-run --itemize-changes /source/ /destination/ | rsync_tree --base-path /source/
+rsync -av --dry-run --itemize-changes /source/ /destination/ | rsync_tree build --base-path /source/
 ```
 
 To save the raw rsync output while also piping to rsync_tree, use `tee`:
 
 ```bash
-rsync -av --dry-run --itemize-changes /source/ /destination/ | tee output.txt | rsync_tree --base-path /source/
+rsync -av --dry-run --itemize-changes /source/ /destination/ | tee output.txt | rsync_tree build --base-path /source/
 ```
 
 ### Save a tree snapshot for later comparison
 
 ```bash
-rsync -av --dry-run --itemize-changes /source/ /destination/ | rsync_tree --base-path /source/ --save-tree backup-week1.json
+rsync -av --dry-run --itemize-changes /source/ /destination/ | rsync_tree build --base-path /source/ --save-tree backup-week1.json
 ```
 
 ### Load a previously saved tree (skip running rsync)
 
 ```bash
-rsync_tree --load-tree backup-week1.json
+rsync_tree build --load-tree backup-week1.json
 ```
 
 ### Compare two or more saved trees
 
 ```bash
-rsync_tree --compare backup-week1.json backup-week2.json
+rsync_tree compare backup-week1.json backup-week2.json
 ```
 
 Only nodes that differ between trees are shown. When trees disagree, labels (the JSON filenames) appear on the left colored by that tree's status for the node. Gray labels indicate the file/directory was **missing** from that snapshot.
 
 ### All options
 
+#### `rsync_tree build`
+
 ```
 Options:
   -b, --base-path <BASE_PATH>
-          Base path for tree construction (REQUIRED for single-tree mode)
+          Base path for tree construction (REQUIRED)
 
   -c, --color
-          Enable colored tree output [default: true]
+          Enable colored output [default: true]
 
   -C, --collapse
           Collapse directories entirely included or excluded [default: true]
@@ -95,12 +97,24 @@ Options:
   --load-tree <PATH>
           Load a tree from a JSON file instead of running rsync
 
-  --compare <PATHS...>
-          Compare multiple saved tree JSON files
+  -h, --help
+  -V, --version
+```
 
-  --ignore-size
-          Ignore file sizes when comparing trees
+#### `rsync_tree compare`
 
+```
+Usage: rsync_tree compare [OPTIONS] <PATHS>...
+
+Arguments:
+  <PATHS>...  Paths to saved tree JSON files (at least 2 required)
+
+Options:
+  -c, --color     Enable colored output [default: true]
+  -D, --debug     Show debug information in tree output
+  --log-level <LOG_LEVEL>
+          Logging level (error, warn, info, debug, trace) [default: info]
+  --ignore-size   Ignore file sizes when comparing trees
   -h, --help
   -V, --version
 ```
@@ -132,6 +146,8 @@ Options:
 - <span style="color:red">Red</span> — excluded
 - White — mixed (some children included, some excluded)
 - **Bold** — directory
+
+**Note**: colors rendering depends on your markdown viewer.
 
 ## Current Limitations & Known Issues
 
