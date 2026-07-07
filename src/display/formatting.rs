@@ -50,7 +50,6 @@ pub fn format_debug_info(status: NodeStatus) -> String {
         NodeStatus::FileIncluded => "[FI]",
         NodeStatus::FileExcluded => "[FE]",
         NodeStatus::DirectoryExcluded => "[DE]",
-        NodeStatus::DirectoryStandalone => "[DS]",
         NodeStatus::DirectoryIncluded => "[DI]",
         NodeStatus::DirectoryMixed => "[DM]",
     }
@@ -136,7 +135,7 @@ pub fn apply_style(text: &str, style: Style) -> String {
 pub fn style_node_name(name: &str, status: NodeStatus, use_color: bool) -> String {
     let style = match status {
         NodeStatus::FileIncluded => status_style(true, false, !use_color),
-        NodeStatus::DirectoryIncluded | NodeStatus::DirectoryStandalone => {
+        NodeStatus::DirectoryIncluded => {
             status_style(true, true, !use_color)
         }
         NodeStatus::FileExcluded => status_style(false, false, !use_color),

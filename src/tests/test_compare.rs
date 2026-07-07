@@ -36,10 +36,6 @@ fn test_status_mapping() {
         PerTreeStatus::Included
     );
     assert_eq!(
-        status_to_compare_status(NodeStatus::DirectoryStandalone),
-        PerTreeStatus::Included
-    );
-    assert_eq!(
         status_to_compare_status(NodeStatus::DirectoryExcluded),
         PerTreeStatus::Excluded
     );
@@ -98,7 +94,7 @@ fn test_missing_file_in_one_tree() {
         NodeStatus::DirectoryMixed,
         vec![make_file("f1.txt", NodeStatus::FileIncluded)],
     );
-    let tree_b = make_dir("root", NodeStatus::DirectoryStandalone, vec![]);
+    let tree_b = make_dir("root", NodeStatus::DirectoryIncluded, vec![]);
 
     let compared = compare_trees(&[tree_a, tree_b]);
 
@@ -330,4 +326,58 @@ fn test_empty_children_display() {
     assert!(!node.all_equal);
     assert_eq!(node.per_tree_status.len(), 2);
     assert!(node.children.is_empty());
+}
+
+#[test]
+fn test_empty_dir_vs_mixed_dir_in_compare() {
+    // Tree A: empty included directory
+    // Tree B: mixed directory (has an excluded child)
+    let tree_a = make_dir("root", NodeStatus::DirectoryIncluded, vec![]);
+    let tree_b = make_dir(
+        "root",
+        NodeStatus::DirectoryMixed,
+        vec![make_file("f1.txt", NodeStatus::FileExcluded)],
+    );
+
+    let compared = compare_trees(&[tree_a, tree_b]);
+
+    assert!(!compared.all_equal);
+    assert_eq!(
+        compared.per_tree_status,
+        vec![PerTreeStatus::Included, PerTreeStatus::Mixed]
+    );
+}
+
+#[test]
+fn test_empty_dir_vs_included_dir_in_compare() {
+    // Tree A: empty included directory
+    // Tree B: included directory with an included child
+    let tree_a = make_dir("root", NodeStatus::DirectoryIncluded, vec![]);
+    let tree_b = make_dir(
+        "root",
+        NodeStatus::DirectoryIncluded,
+        vec![make_file("f1.txt", NodeStatus::FileIncluded)],
+    );
+
+    let compared = compare_trees(&[tree_a, tree_b]);
+
+    // Both roots are DirectoryIncluded → both map to Included → statuses equal
+    // But children differ: tree_a has no f1.txt, tree_b does
+    assert!(!compared.all_equal);
+    let f1 = compared.children.get("f1.txt").unwrap();
+    assert_eq!(
+        f1.per_tree_status,
+        vec![PerTreeStatus::Missing, PerTreeStatus::Included]
+    );
+}
+
+#[test]
+fn test_both_empty_dirs_equal_in_compare() {
+    let tree_a = make_dir("root", NodeStatus::DirectoryIncluded, vec![]);
+    let tree_b = make_dir("root", NodeStatus::DirectoryIncluded, vec![]);
+
+    let compared = compare_trees(&[tree_a, tree_b]);
+
+    assert!(compared.all_equal);
+    assert!(compared.children.is_empty());
 }

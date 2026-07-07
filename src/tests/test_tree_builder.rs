@@ -73,7 +73,7 @@ fn test_empty_parse_results() {
 }
 
 #[test]
-fn test_standalone_directory() {
+fn test_included_dir_with_only_excluded_children() {
     let temp_dir = tempdir().unwrap();
     let base_path = temp_dir.path();
 
@@ -91,7 +91,7 @@ fn test_standalone_directory() {
     let tree = build_tree_from_rsync_output(parse_results, base_path, false).unwrap();
 
     let included_dir = &tree.children["included_dir"];
-    assert_eq!(included_dir.status, NodeStatus::DirectoryStandalone);
+    assert_eq!(included_dir.status, NodeStatus::DirectoryMixed);
     assert_eq!(included_dir.children.len(), 1);
     assert_eq!(
         included_dir.children["file.txt"].status,
@@ -231,5 +231,65 @@ fn test_percentage_display() {
         rendered.contains("100 B"),
         "Should show total size, got: {}",
         rendered
+    );
+}
+
+#[test]
+fn test_empty_included_directory_is_included() {
+    let temp_dir = tempdir().unwrap();
+    let base_path = temp_dir.path();
+
+    // Create an empty directory
+    fs::create_dir_all(base_path.join("empty_dir")).unwrap();
+
+    let parse_results = vec![ParseResult::Item(RsyncItem {
+        update_type: UpdateType::Received,
+        file_type: Some(FileType::Directory),
+        attributes: None,
+        path: PathBuf::from("empty_dir/"),
+        link_target: None,
+        message: None,
+    })];
+    let tree = build_tree_from_rsync_output(parse_results, base_path, false).unwrap();
+
+    let empty_dir = &tree.children["empty_dir"];
+    assert_eq!(
+        empty_dir.status,
+        NodeStatus::DirectoryIncluded,
+        "An empty included directory should be DirectoryIncluded, not DirectoryMixed"
+    );
+    assert!(empty_dir.children.is_empty());
+}
+
+#[test]
+fn test_included_dir_with_all_excluded_children_is_mixed() {
+    let temp_dir = tempdir().unwrap();
+    let base_path = temp_dir.path();
+
+    // Create a directory with a file that will be excluded
+    fs::create_dir_all(base_path.join("dir")).unwrap();
+    fs::write(base_path.join("dir/file.txt"), "content").unwrap();
+
+    // Only include the directory, not the file
+    let parse_results = vec![ParseResult::Item(RsyncItem {
+        update_type: UpdateType::Received,
+        file_type: Some(FileType::Directory),
+        attributes: None,
+        path: PathBuf::from("dir/"),
+        link_target: None,
+        message: None,
+    })];
+    let tree = build_tree_from_rsync_output(parse_results, base_path, false).unwrap();
+
+    let dir = &tree.children["dir"];
+    assert_eq!(
+        dir.status,
+        NodeStatus::DirectoryMixed,
+        "A directory with all children excluded should be DirectoryMixed"
+    );
+    assert_eq!(dir.children.len(), 1);
+    assert_eq!(
+        dir.children["file.txt"].status,
+        NodeStatus::FileExcluded
     );
 }

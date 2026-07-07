@@ -23,9 +23,7 @@ pub struct ComparedNode {
 /// Map a NodeStatus to a PerTreeStatus
 pub fn status_to_compare_status(status: NodeStatus) -> PerTreeStatus {
     match status {
-        NodeStatus::FileIncluded
-        | NodeStatus::DirectoryIncluded
-        | NodeStatus::DirectoryStandalone => PerTreeStatus::Included,
+        NodeStatus::FileIncluded | NodeStatus::DirectoryIncluded => PerTreeStatus::Included,
         NodeStatus::FileExcluded | NodeStatus::DirectoryExcluded => PerTreeStatus::Excluded,
         NodeStatus::DirectoryMixed => PerTreeStatus::Mixed,
     }
@@ -37,7 +35,6 @@ fn status_is_directory(status: NodeStatus) -> bool {
         NodeStatus::DirectoryExcluded
             | NodeStatus::DirectoryIncluded
             | NodeStatus::DirectoryMixed
-            | NodeStatus::DirectoryStandalone
     )
 }
 

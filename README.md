@@ -83,7 +83,7 @@ Options:
           Collapse directories entirely included or excluded [default: true]
 
   -D, --debug
-          Show node status debug info (FI/FE/DI/DE/DS/DM)
+          Show node status debug info (FI/FE/DI/DE/DM)
 
   -S, --show-sizes
           Collect and display file/folder sizes [default: true]

@@ -9,8 +9,7 @@ pub fn display_legends(debug: bool, show_sizes: bool, color: bool, num_trees: us
         println!("  [FE] - File Excluded");
         println!("  [DI] - Directory Included (all children included)");
         println!("  [DE] - Directory Excluded");
-        println!("  [DS] - Directory Standalone (included but no children)");
-        println!("  [DM] - Directory Mixed (some children included)");
+        println!("  [DM] - Directory Mixed (some or no children included)");
     }
 
     if debug && num_trees > 0 {

@@ -9,7 +9,6 @@ pub enum NodeStatus {
     FileExcluded,
     FileIncluded,
     DirectoryExcluded,
-    DirectoryStandalone,
     DirectoryMixed,
     DirectoryIncluded,
 }
@@ -54,9 +53,7 @@ impl Tree {
         // If this is a directory and we don't have a size yet, compute it
         if self.is_directory() && self.size.is_none() {
             match self.status {
-                NodeStatus::DirectoryIncluded
-                | NodeStatus::DirectoryMixed
-                | NodeStatus::DirectoryStandalone => {
+                NodeStatus::DirectoryIncluded | NodeStatus::DirectoryMixed => {
                     // Sum up sizes of all included children
                     let total_size: u64 = self
                         .children
@@ -65,8 +62,7 @@ impl Tree {
                             match child.status {
                                 NodeStatus::FileIncluded
                                 | NodeStatus::DirectoryIncluded
-                                | NodeStatus::DirectoryMixed
-                                | NodeStatus::DirectoryStandalone => child.size,
+                                | NodeStatus::DirectoryMixed => child.size,
                                 _ => None, // Don't count excluded items
                             }
                         })
@@ -88,7 +84,6 @@ impl Tree {
             NodeStatus::DirectoryExcluded
                 | NodeStatus::DirectoryIncluded
                 | NodeStatus::DirectoryMixed
-                | NodeStatus::DirectoryStandalone
         )
     }
 
@@ -103,5 +98,4 @@ impl Tree {
         let json = fs::read_to_string(path)?;
         serde_json::from_str(&json).map_err(io::Error::other)
     }
-
-    }
+}

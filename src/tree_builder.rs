@@ -73,7 +73,7 @@ pub fn build_tree_from_rsync_output(
 fn determine_initial_status(entry_path: &Path, is_included: bool) -> NodeStatus {
     if entry_path.is_dir() {
         if is_included {
-            NodeStatus::DirectoryStandalone // Will be updated based on children
+            NodeStatus::DirectoryMixed // Will be updated based on children
         } else {
             NodeStatus::DirectoryExcluded
         }
@@ -166,34 +166,20 @@ fn build_complete_tree(
 fn compute_directory_status(directory: &Tree) -> NodeStatus {
     // Directory is included
     if directory.children.is_empty() {
-        // Empty directory that is included
-        NodeStatus::DirectoryStandalone
+        // Empty directory that is included — nothing to be mixed about
+        NodeStatus::DirectoryIncluded
     } else {
         let all_children_included = directory.children.values().all(|child| {
             matches!(
                 child.status,
-                NodeStatus::FileIncluded
-                    | NodeStatus::DirectoryIncluded
-                    | NodeStatus::DirectoryStandalone
-            )
-        });
-
-        let any_children_included = directory.children.values().any(|child| {
-            matches!(
-                child.status,
-                NodeStatus::FileIncluded
-                    | NodeStatus::DirectoryIncluded
-                    | NodeStatus::DirectoryStandalone
-                    | NodeStatus::DirectoryMixed
+                NodeStatus::FileIncluded | NodeStatus::DirectoryIncluded
             )
         });
 
         if all_children_included {
             NodeStatus::DirectoryIncluded
-        } else if any_children_included {
-            NodeStatus::DirectoryMixed
         } else {
-            NodeStatus::DirectoryStandalone
+            NodeStatus::DirectoryMixed
         }
     }
 }

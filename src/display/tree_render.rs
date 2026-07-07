@@ -47,8 +47,7 @@ fn render_tree_core<W: std::io::Write>(
     let should_collapse = !node.children.is_empty()
         && (node.status == NodeStatus::DirectoryExcluded
             || (collapse
-                && (node.status == NodeStatus::DirectoryIncluded
-                    || node.status == NodeStatus::DirectoryStandalone)));
+                && node.status == NodeStatus::DirectoryIncluded));
 
     if should_collapse {
         let summary = format_collapsed_summary(node.children.len(), color);

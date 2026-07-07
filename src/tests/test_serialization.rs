@@ -34,7 +34,7 @@ fn sample_tree() -> Tree {
     let standalone = Tree::new(
         "standalone".into(),
         "root/standalone".into(),
-        NodeStatus::DirectoryStandalone,
+        NodeStatus::DirectoryMixed,
     );
     root.add_child(standalone);
 
@@ -74,7 +74,6 @@ fn all_node_statuses_survive_roundtrip() {
         NodeStatus::FileExcluded,
         NodeStatus::FileIncluded,
         NodeStatus::DirectoryExcluded,
-        NodeStatus::DirectoryStandalone,
         NodeStatus::DirectoryMixed,
         NodeStatus::DirectoryIncluded,
     ];
