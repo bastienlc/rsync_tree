@@ -212,8 +212,7 @@ fn test_percentage_display() {
 
     // Render the tree with sizes
     let mut output = Vec::new();
-    crate::display::render_tree(&tree, &mut output, false, false, false, true)
-        .unwrap();
+    crate::display::render_tree(&tree, &mut output, false, false, false, true).unwrap();
     let rendered = String::from_utf8_lossy(&output);
 
     // Check that percentages are displayed correctly
@@ -288,8 +287,122 @@ fn test_included_dir_with_all_excluded_children_is_mixed() {
         "A directory with all children excluded should be DirectoryMixed"
     );
     assert_eq!(dir.children.len(), 1);
+    assert_eq!(dir.children["file.txt"].status, NodeStatus::FileExcluded);
+}
+
+#[test]
+#[cfg(unix)] // symlink creation requires Unix
+fn test_symlink_with_links_flag() {
+    use std::os::unix::fs::symlink;
+
+    let temp_dir = tempdir().unwrap();
+    let base_path = temp_dir.path();
+
+    // Create a regular file and a symlink to it
+    fs::write(base_path.join("regular.txt"), "hello world").unwrap();
+    symlink(base_path.join("regular.txt"), base_path.join("link.txt")).unwrap();
+
+    // Also create a directory and a symlink pointing to it
+    fs::create_dir_all(base_path.join("target_dir")).unwrap();
+    fs::write(base_path.join("target_dir/nested.txt"), "nested").unwrap();
+    symlink(base_path.join("target_dir"), base_path.join("link_to_dir")).unwrap();
+
+    // Simulate rsync --links output: symlinks reported with FileType::Symlink
+    let parse_results = vec![
+        ParseResult::Item(RsyncItem {
+            update_type: UpdateType::LocalChange,
+            file_type: Some(FileType::Symlink),
+            attributes: None,
+            path: PathBuf::from("link.txt"),
+            link_target: Some(PathBuf::from("regular.txt")),
+            message: None,
+        }),
+        ParseResult::Item(RsyncItem {
+            update_type: UpdateType::LocalChange,
+            file_type: Some(FileType::Symlink),
+            attributes: None,
+            path: PathBuf::from("link_to_dir"),
+            link_target: Some(PathBuf::from("target_dir")),
+            message: None,
+        }),
+        // Regular file and directory are also included to ensure they show up
+        ParseResult::Item(RsyncItem {
+            update_type: UpdateType::Received,
+            file_type: Some(FileType::File),
+            attributes: None,
+            path: PathBuf::from("regular.txt"),
+            link_target: None,
+            message: None,
+        }),
+        ParseResult::Item(RsyncItem {
+            update_type: UpdateType::Received,
+            file_type: Some(FileType::Directory),
+            attributes: None,
+            path: PathBuf::from("target_dir/"),
+            link_target: None,
+            message: None,
+        }),
+        ParseResult::Item(RsyncItem {
+            update_type: UpdateType::Received,
+            file_type: Some(FileType::File),
+            attributes: None,
+            path: PathBuf::from("target_dir/nested.txt"),
+            link_target: None,
+            message: None,
+        }),
+    ];
+
+    let tree = build_tree_from_rsync_output(parse_results, base_path, true).unwrap();
+
+    // ── Symlink to a regular file ──
+    let link_to_file = &tree.children["link.txt"];
+    assert_eq!(link_to_file.status, NodeStatus::FileIncluded);
+    assert_eq!(link_to_file.link_target, Some(PathBuf::from("regular.txt")));
+    // Size should come from symlink_metadata (the inode), not the target file
+    let symlink_meta = fs::symlink_metadata(base_path.join("link.txt")).unwrap();
+    assert_eq!(link_to_file.size, Some(symlink_meta.len()));
+    // The symlink must be a leaf
+    assert!(link_to_file.children.is_empty());
+
+    // ── Symlink to a directory ──
+    let link_to_dir = &tree.children["link_to_dir"];
+    assert_eq!(link_to_dir.status, NodeStatus::FileIncluded);
+    assert_eq!(link_to_dir.link_target, Some(PathBuf::from("target_dir")));
+    let dir_symlink_meta = fs::symlink_metadata(base_path.join("link_to_dir")).unwrap();
+    assert_eq!(link_to_dir.size, Some(dir_symlink_meta.len()));
+    // Even though it points to a directory, it must NOT be recursed into
+    assert!(link_to_dir.children.is_empty());
+
+    // ── Regular file and directory are unaffected ──
+    assert!(tree.children.contains_key("regular.txt"));
     assert_eq!(
-        dir.children["file.txt"].status,
-        NodeStatus::FileExcluded
+        tree.children["regular.txt"].status,
+        NodeStatus::FileIncluded
     );
+    assert!(tree.children.contains_key("target_dir"));
+    assert!(
+        tree.children["target_dir"]
+            .children
+            .contains_key("nested.txt")
+    );
+}
+
+#[test]
+fn test_symlink_not_included_remains_excluded() {
+    use std::os::unix::fs::symlink;
+
+    let temp_dir = tempdir().unwrap();
+    let base_path = temp_dir.path();
+
+    fs::write(base_path.join("data.txt"), "content").unwrap();
+    symlink(base_path.join("data.txt"), base_path.join("my_link")).unwrap();
+
+    // No parse results at all — nothing is included
+    let tree = build_tree_from_rsync_output(vec![], base_path, true).unwrap();
+
+    let link_node = &tree.children["my_link"];
+    assert_eq!(link_node.status, NodeStatus::FileExcluded);
+    assert_eq!(link_node.link_target, None);
+    // Excluded items don't get sizes collected
+    assert_eq!(link_node.size, None);
 }

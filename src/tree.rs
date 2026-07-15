@@ -21,6 +21,9 @@ pub struct Tree {
     pub status: NodeStatus,
     /// Size in bytes. None if size collection is disabled or failed
     pub size: Option<u64>,
+    /// Symlink target as reported by rsync. `None` if this is not a symlink.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub link_target: Option<PathBuf>,
 }
 
 impl Tree {
@@ -32,6 +35,7 @@ impl Tree {
             children: BTreeMap::new(),
             status,
             size: None,
+            link_target: None,
         }
     }
 

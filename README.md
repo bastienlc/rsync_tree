@@ -10,8 +10,8 @@ Please read the [Current Limitations & Known Issues](#current-limitations--known
 
 - **Pipe-friendly** — reads rsync `--itemize-changes` directly from stdin
 - **Tree visualization** — green (included), red (excluded), gray (missing), bold white (mixed)
-- **Size analysis** — file/directory sizes with percentage of parent
 - **Collapsible view** — compress fully-included or fully-excluded subtrees
+- **Symlink awareness** — when rsync uses `--links`, symlinks are shown as leaf nodes with their target (`→ target`) and symlink inode size; when rsync uses `--copy-links`, symlinks are transparently resolved to their target file (no special annotation)
 - **Compare mode** — diff multiple saved trees side-by-side to see what changed between backups
 - **Save / Load** — serialize trees to JSON for later inspection or comparison
 - **Progress feedback** — line count and parse warnings printed to stderr during processing
@@ -168,7 +168,7 @@ Contributions welcome! Areas needing improvement:
 - [ ] Performance optimization for large trees
 - [ ] Additional output formats (JSON, HTML)
 - [ ] Progress indicators
-- [ ] Symlink and hard link handling
+- [ ] Hard link handling
 
 ## License
 

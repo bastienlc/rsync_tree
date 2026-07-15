@@ -1,24 +1,29 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// A prefix-based data structure to efficiently check if a path is included
+/// A prefix-based data structure with type-level metadata per path.
+///
+/// Terminal nodes (explicitly inserted paths) carry `Some(item)` while
+/// intermediate routing nodes have `None`.
 #[derive(Debug)]
-pub struct PathTrie {
+pub struct PathTrie<T> {
     /// Map from path component to child trie
-    children: HashMap<String, PathTrie>,
-    /// Whether this exact path is included
-    is_included: bool,
+    children: HashMap<String, PathTrie<T>>,
+    /// Payload stored at this exact path (None for intermediate routing nodes)
+    item: Option<T>,
 }
 
-impl PathTrie {
+impl<T> PathTrie<T> {
     pub fn new() -> Self {
         Self {
             children: HashMap::new(),
-            is_included: false,
+            item: None,
         }
     }
 
-    pub fn insert(&mut self, path: &Path) {
+    /// Insert `item` at the terminal node identified by `path`.
+    /// Intermediate path components are created as routing nodes with `None`.
+    pub fn insert(&mut self, path: &Path, item: T) {
         let mut current = self;
         for component in path.components() {
             if let Some(component_str) = component.as_os_str().to_str() {
@@ -28,23 +33,30 @@ impl PathTrie {
                     .or_insert_with(PathTrie::new);
             }
         }
-        current.is_included = true;
+        current.item = Some(item);
     }
 
-    pub fn is_path_included(&self, path: &Path) -> bool {
+    /// Return a reference to the item stored at the exact path, or `None`.
+    pub fn get(&self, path: &Path) -> Option<&T> {
         let mut current = self;
         for component in path.components() {
             if let Some(component_str) = component.as_os_str().to_str() {
                 if let Some(child) = current.children.get(component_str) {
                     current = child;
                 } else {
-                    return false;
+                    return None;
                 }
             } else {
-                return false;
+                return None;
             }
         }
-        current.is_included
+        current.item.as_ref()
+    }
+
+    /// Returns `true` when a value has been inserted for this exact path.
+    #[allow(dead_code)]
+    pub fn contains(&self, path: &Path) -> bool {
+        self.get(path).is_some()
     }
 }
 

@@ -4,7 +4,7 @@ use std::path::Path;
 use log::warn;
 
 use crate::path_utils::{PathTrie, get_display_name, normalize_path};
-use crate::rsync_types::{ParseResult, RsyncItem};
+use crate::rsync_types::{FileType, ParseResult, RsyncItem};
 use crate::tree::{NodeStatus, Tree};
 
 /// Error types for tree construction
@@ -35,11 +35,11 @@ pub fn build_tree_from_rsync_output(
         })
         .collect();
 
-    // Create a path trie of all included paths
+    // Create a path trie of all included paths, carrying the full RsyncItem
     let mut included_paths = PathTrie::new();
     for item in &included_items {
         let normalized_path = normalize_path(&item.path, base_path);
-        included_paths.insert(&normalized_path);
+        included_paths.insert(&normalized_path, item);
     }
 
     // Get the base name for the root tree node
@@ -86,23 +86,56 @@ fn determine_initial_status(entry_path: &Path, is_included: bool) -> NodeStatus 
     }
 }
 
-/// Create a child node with metadata
+/// Create a child node with metadata.
+///
+/// When `rsync_item` indicates a symlink (`FileType::Symlink`), the size is read from
+/// `symlink_metadata` (the inode itself, not the target) and `link_target` is stored.
+/// Otherwise `metadata` is used (following symlinks) and no `link_target` is set.
 fn create_child_node(
     entry_path: &Path,
     is_included: bool,
     collect_sizes: bool,
+    rsync_item: Option<&&RsyncItem>,
 ) -> Result<Tree, TreeBuildError> {
     let file_name = get_display_name(entry_path);
-    let initial_status = determine_initial_status(entry_path, is_included);
+
+    // Determine whether rsync reported this as a symlink
+    let is_rsync_symlink = rsync_item.and_then(|i| i.file_type) == Some(FileType::Symlink);
+
+    let initial_status = if is_rsync_symlink {
+        // A symlink is always a leaf node — never a directory, even if it points to one.
+        // `determine_initial_status` uses `entry_path.is_dir()` which follows symlinks,
+        // so we bypass it for symlinks explicitly.
+        if is_included {
+            NodeStatus::FileIncluded
+        } else {
+            NodeStatus::FileExcluded
+        }
+    } else {
+        determine_initial_status(entry_path, is_included)
+    };
+
     let mut child = Tree::new(file_name, entry_path.to_path_buf(), initial_status);
 
-    // Collect file size if enabled and file is included
-    if collect_sizes && !entry_path.is_dir() && is_included {
-        if let Ok(metadata) = fs::metadata(entry_path) {
-            child.size = Some(metadata.len());
-        } else {
-            warn!("Failed to get metadata for file: {}", entry_path.display());
+    // Collect size if enabled and the node is included
+    if collect_sizes && is_included {
+        if is_rsync_symlink {
+            // Use symlink_metadata: reads the symlink inode, works on broken symlinks
+            if let Ok(meta) = fs::symlink_metadata(entry_path) {
+                child.size = Some(meta.len());
+            }
+        } else if !entry_path.is_dir() {
+            if let Ok(metadata) = fs::metadata(entry_path) {
+                child.size = Some(metadata.len());
+            } else {
+                warn!("Failed to get metadata for file: {}", entry_path.display());
+            }
         }
+    }
+
+    // Store the link target from rsync output
+    if is_rsync_symlink {
+        child.link_target = rsync_item.and_then(|i| i.link_target.clone());
     }
 
     Ok(child)
@@ -111,7 +144,7 @@ fn create_child_node(
 fn build_complete_tree(
     node: &mut Tree,
     current_path: &Path,
-    included_paths: &PathTrie,
+    included_paths: &PathTrie<&RsyncItem>,
     base_path: &Path,
     collect_sizes: bool,
 ) -> Result<(), TreeBuildError> {
@@ -131,14 +164,19 @@ fn build_complete_tree(
             .unwrap_or(&entry_path)
             .to_path_buf();
 
-        // Determine if this path is included
-        let is_included = included_paths.is_path_included(&relative_path);
+        // Look up the full RsyncItem from the trie
+        let rsync_item = included_paths.get(&relative_path);
+        let is_included = rsync_item.is_some();
+
+        // Determine whether rsync reported this as a symlink
+        let is_rsync_symlink = rsync_item.and_then(|i| i.file_type) == Some(FileType::Symlink);
 
         // Create the child node
-        let mut child = create_child_node(&entry_path, is_included, collect_sizes)?;
+        let mut child = create_child_node(&entry_path, is_included, collect_sizes, rsync_item)?;
 
-        // Recursively process if it's a directory
-        if entry_path.is_dir() {
+        // Recursively process if it's a directory — but NOT if rsync reported a symlink
+        // (symlinks are always leaf nodes even when they point to directories).
+        if entry_path.is_dir() && !is_rsync_symlink {
             if is_included {
                 // Directory is included, so we need to check its children
                 build_complete_tree(

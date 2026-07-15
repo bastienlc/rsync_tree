@@ -20,7 +20,7 @@ pub enum UpdateType {
 }
 
 /// Represents the type of file
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileType {
     /// f - regular file
     File,
