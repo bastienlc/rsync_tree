@@ -1,10 +1,10 @@
 use log::{debug, info, warn};
-
 use rsync_tree::TreeBuildError;
 use rsync_tree::build_tree_from_rsync_output;
 use rsync_tree::compare::{compare_trees, filter_diff, load_trees};
 use rsync_tree::display::{self, render_compare_tree};
 use rsync_tree::rsync_types::ParseResult;
+use std::fs;
 
 use crate::cli::{BuildArgs, CompareArgs};
 
@@ -23,11 +23,14 @@ pub fn run_single_mode(
     }
 
     info!("Building tree from parsed results...");
-    let tree = build_tree_from_rsync_output(parse_results, &args.base_path, args.show_sizes)
-        .map_err(|e| match e {
-            TreeBuildError::IoError(e) => format!("IO error while building tree: {}", e),
-            TreeBuildError::InvalidPath(path) => {
-                format!("Invalid path encountered while building tree: {}", path)
+    let base_path = fs::canonicalize(&args.base_path)?;
+    let tree =
+        build_tree_from_rsync_output(parse_results, &base_path, args.show_sizes).map_err(|e| {
+            match e {
+                TreeBuildError::IoError(e) => format!("IO error while building tree: {}", e),
+                TreeBuildError::InvalidPath(path) => {
+                    format!("Invalid path encountered while building tree: {}", path)
+                }
             }
         })?;
 

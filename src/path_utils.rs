@@ -84,3 +84,39 @@ pub fn get_display_name(path: &Path) -> String {
         .to_string_lossy()
         .to_string()
 }
+
+/// Find the longest common ancestor directory of a set of paths.
+///
+/// Walks path components in lockstep and stops at the first divergence.
+/// Returns `/` when paths are completely disjoint (no common prefix beyond root).
+pub fn find_common_ancestor(paths: &[PathBuf]) -> PathBuf {
+    if paths.is_empty() {
+        return PathBuf::from("/");
+    }
+
+    // Collect components for each path
+    let components: Vec<Vec<_>> = paths
+        .iter()
+        .map(|p| p.components().collect::<Vec<_>>())
+        .collect();
+
+    // Find the minimum depth across all paths
+    let min_depth = components.iter().map(|c| c.len()).min().unwrap_or(0);
+
+    // Walk components in lockstep, building the common prefix on the fly
+    let mut result = PathBuf::new();
+    for i in 0..min_depth {
+        let first = components[0][i];
+        if components.iter().all(|c| c[i] == first) {
+            result.push(first.as_os_str());
+        } else {
+            break;
+        }
+    }
+
+    if result.has_root() {
+        result
+    } else {
+        PathBuf::from("/")
+    }
+}
